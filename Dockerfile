@@ -1,30 +1,27 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Stage 1 – Builder
-# ─────────────────────────────────────────────────────────────────────────────
 FROM ubuntu:22.04 AS builder
-
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update --fix-missing && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     g++ \
-    cmake \
     libboost-all-dev \
     libssl-dev \
     zlib1g-dev \
     git \
     ca-certificates \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    libasio-dev \
+    && apt-get clean
 
-# Download Crow (header-only library)
 RUN git clone --depth=1 https://github.com/CrowCpp/Crow.git /crow
 
-WORKDIR /app
+# Verify what headers exist
+RUN find /crow/include -name "*.h" | head -20
 
+WORKDIR /app
 COPY kundali.cpp .
 
 RUN g++ -std=c++17 -O2 \
     -I/crow/include \
+    -I/crow \
     kundali.cpp \
     -o kundali_server \
     -lboost_system \
@@ -33,24 +30,15 @@ RUN g++ -std=c++17 -O2 \
     -lcrypto \
     -lz
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Stage 2 – Runtime
-# ─────────────────────────────────────────────────────────────────────────────
 FROM ubuntu:22.04 AS runtime
-
 ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update --fix-missing && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     libboost-system1.74.0 \
     libssl3 \
     zlib1g \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean
 
 WORKDIR /app
-
 COPY --from=builder /app/kundali_server .
-
 EXPOSE 8080
-
 CMD ["./kundali_server"]
