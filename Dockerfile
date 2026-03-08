@@ -1,43 +1,14 @@
-FROM ubuntu:22.04 AS builder
+﻿FROM ubuntu:22.04 AS builder
 ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    g++ \
-    libboost-all-dev \
-    libssl-dev \
-    zlib1g-dev \
-    git \
-    ca-certificates \
-    libasio-dev \
-    && apt-get clean
-
+RUN apt-get update && apt-get install -y g++ cmake libboost-all-dev libssl-dev zlib1g-dev git ca-certificates libasio-dev && apt-get clean
 RUN git clone --depth=1 https://github.com/CrowCpp/Crow.git /crow
-
-# Verify what headers exist
-RUN find /crow/include -name "*.h" | head -20
-
+RUN cd /crow && mkdir build && cd build && cmake .. -DCROW_BUILD_EXAMPLES=OFF -DCROW_BUILD_TESTS=OFF && make install
 WORKDIR /app
 COPY kundali.cpp .
-
-RUN g++ -std=c++17 -O2 \
-    -I/crow/include \
-    -I/crow \
-    kundali.cpp \
-    -o kundali_server \
-    -lboost_system \
-    -lpthread \
-    -lssl \
-    -lcrypto \
-    -lz
-
+RUN g++ -std=c++17 -O2 kundali.cpp -o kundali_server -lboost_system -lpthread -lssl -lcrypto -lz
 FROM ubuntu:22.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y \
-    libboost-system1.74.0 \
-    libssl3 \
-    zlib1g \
-    && apt-get clean
-
+RUN apt-get update && apt-get install -y libboost-system1.74.0 libssl3 zlib1g && apt-get clean
 WORKDIR /app
 COPY --from=builder /app/kundali_server .
 EXPOSE 8080
